@@ -28,22 +28,6 @@ This installs both skills, creates the bash wrapper, state directory, and both c
 | 7:00 AM | `paperboy` | Discovers articles, delivers raw list to Telegram |
 | 7:15 AM | `paperboy-briefing` | Radio briefing + TTS audio with embedded links |
 
-### Recycling bin auto-cleanup (optional)
-
-If you have a Recycling smart list that accumulates RSS items, schedule an auto-purge:
-
-```bash
-bash paperboy/setup-recycling.sh --list "Recycling" --deliver origin
-```
-
-This installs the cleanup script and creates a daily cron job at 8 AM:
-
-| Time | Job | What it does |
-|------|-----|-------------|
-| 8:00 AM | `recycling-cleanup` | Deletes all bookmarks in the named smart list |
-
-The script loops until the list is empty, so it handles feeds that keep pushing items during deletion.
-
 ### Visual schedule
 
 ```
