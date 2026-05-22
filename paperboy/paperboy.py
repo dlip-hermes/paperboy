@@ -320,8 +320,8 @@ def main():
     # Sort by score descending
     scored_articles.sort(key=lambda x: x['score'], reverse=True)
 
-    # Take top N articles (default 50)
-    MAX_ARTICLES = 50
+    # Take top N articles (default 10, overridable via PAPERBOY_MAX_ARTICLES env var)
+    MAX_ARTICLES = int(os.environ.get('PAPERBOY_MAX_ARTICLES', '10'))
     top_articles = scored_articles[:MAX_ARTICLES]
 
     # Generate article info for selected articles
