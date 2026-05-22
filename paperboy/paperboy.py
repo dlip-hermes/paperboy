@@ -123,14 +123,27 @@ def get_top_tags(tag_counts, limit=10, exclude=None):
 
 
 def get_last_run_time():
-    """Get the last run time from strategy state file, converted to UTC for Karakeep compatibility."""
+    """Get the last run time from strategy state file, converted to UTC.
+    Returns a dict with 'full' (ISO timestamp) and 'date' (YYYY-MM-DD, 1 day earlier).
+    The 'date' key is safe for Karakeep's after: filter (which only accepts YYYY-MM-DD),
+    and the 'full' timestamp is used for client-side dedup.
+    """
     home = os.path.expanduser('~')
     hermes_dir = os.path.join(home, '.hermes')
     article_discovery_dir = os.path.join(hermes_dir, '.paperboy')
     strategy_state_file = os.path.join(article_discovery_dir, "strategy_state.json")
 
-    # Default to 24 hours ago if no state file (in UTC format for Karakeep)
-    default_time = (datetime.now() - timedelta(hours=24)).isoformat()
+    # Default: 48 hours ago in UTC (wider window for safety)
+    import time
+    if time.daylight and time.localtime().tm_isdst > 0:
+        offset = time.altzone
+    else:
+        offset = time.timezone
+    local_offset = timedelta(seconds=-offset)
+    now_utc = datetime.now() - local_offset
+
+    default_full = (now_utc - timedelta(hours=48)).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    default_date = (now_utc - timedelta(hours=48)).strftime('%Y-%m-%d')
 
     if os.path.exists(strategy_state_file):
         try:
@@ -138,40 +151,20 @@ def get_last_run_time():
                 data = json.load(f)
                 last_run = data.get('last_run')
                 if last_run:
-                    # Convert stored local time to UTC for Karakeep query
                     try:
-                        # Parse as naive datetime (assumed to be local time)
+                        # Parse stored time as local time, convert to UTC
                         local_dt = datetime.fromisoformat(last_run)
-                        # Convert to UTC using system timezone offset
-                        import time
-                        if time.daylight and time.localtime().tm_isdst > 0:
-                            offset = time.altzone
-                        else:
-                            offset = time.timezone
-                        local_offset = timedelta(seconds=-offset)
                         utc_dt = local_dt - local_offset
-                        # Format for Karakeep: YYYY-MM-DDTHH:MM:SS.sssZ
-                        return utc_dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+                        full = utc_dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+                        # Use date minus 1 day for a safe window
+                        query_date = (utc_dt - timedelta(days=1)).strftime('%Y-%m-%d')
+                        return {'full': full, 'date': query_date}
                     except Exception:
-                        # If conversion fails, fall back to returning as-is (for backward compatibility)
-                        return last_run
+                        return {'full': last_run, 'date': default_date}
         except Exception:
             pass
 
-    # Default: 24 hours ago in UTC format for Karakeep
-    default_utc = (datetime.now() - timedelta(hours=24)).isoformat()
-    # Try to convert default to UTC format too
-    try:
-        import time
-        if time.daylight and time.localtime().tm_isdst > 0:
-            offset = time.altzone
-        else:
-            offset = time.timezone
-        local_offset = timedelta(seconds=-offset)
-        utc_dt = datetime.now() - local_offset - timedelta(hours=24)
-        return utc_dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
-    except:
-        return default_time
+    return {'full': default_full, 'date': default_date}
 
 def save_last_run_time():
     """Save the current time as last run time."""
@@ -195,21 +188,23 @@ def save_last_run_time():
         pass
 
 
-def get_new_articles_since(last_run_time):
-    """Get bookmarks added since last_run_time."""
-    # Try to search by after: (createdAt filter)
-    result = run_karakeep_command_json(["bookmarks", "search", f"after:{last_run_time}", "--limit", "100"])
+def get_new_articles_since(last_run_data):
+    """Get bookmarks added since last_run_data['full'], using last_run_data['date'] for the after: query."""
+    # Use YYYY-MM-DD format for the 'after:' filter (Karakeep only supports date format)
+    query_date = last_run_data['date']
+    full_timestamp = last_run_data['full']
+
+    result = run_karakeep_command_json(["bookmarks", "search", f"after:{query_date}", "--limit", "100"])
     bookmarks = []
     if result and isinstance(result, dict):
         bookmarks = result.get("bookmarks", [])
     elif result and isinstance(result, dict) and result.get('success'):
-        pass  # No bookmarks found
+        pass
     else:
-        pass  # Error or no results
+        pass
 
-    # If we didn't get any from the first search, try a wider window
+    # Fallback: if after: query returned nothing, try without a time filter
     if not bookmarks:
-        # Try without a time filter, we'll filter client-side
         result = run_karakeep_command_json(["bookmarks", "search", "", "--limit", "100"])
         if result and isinstance(result, dict):
             bookmarks = result.get("bookmarks", [])
@@ -218,18 +213,15 @@ def get_new_articles_since(last_run_time):
         else:
             pass
 
-    # Filter out invalid bookmarks (None or not a dict)
+    # Filter client-side using the full timestamp for precision
     valid_bookmarks = []
     for bm in bookmarks:
         if bm and isinstance(bm, dict):
-            # Client-side date filter as safety net
             created = bm.get('createdAt', '')
             if created and isinstance(created, str) and created.endswith('Z'):
-                # Compare with last_run_time (both in UTC)
-                if created > last_run_time:
+                if created > full_timestamp:
                     valid_bookmarks.append(bm)
             else:
-                # No createdAt timestamp, include by default
                 valid_bookmarks.append(bm)
 
     return valid_bookmarks
@@ -290,11 +282,11 @@ def main():
     tag_counts = extract_tags_from_bookmarks(favorited)
     top_tags = get_top_tags(tag_counts, limit=8)
 
-    # Get last run time
-    last_run_time = get_last_run_time()
+    # Get last run time (returns dict with 'full' and 'date' keys)
+    last_run_data = get_last_run_time()
 
     # Get new articles since last run
-    new_articles = get_new_articles_since(last_run_time)
+    new_articles = get_new_articles_since(last_run_data)
     if not new_articles:
         # Still update last run time to avoid checking same period next time
         save_last_run_time()
