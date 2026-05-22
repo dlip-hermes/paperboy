@@ -162,12 +162,12 @@ python3 paperboy/paperboy.py
 
 ## Configuration
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `MAX_ARTICLES` | 10 | Maximum articles to deliver per run |
-| `TOP_TAGS_LIMIT` | 8 | Number of interest tags to use for scoring |
-| `EXCLUDED_TAGS` | `{'inbox'}` | Tags to ignore when ranking interests |
-| State file | `~/.hermes/.paperboy/state.json` | Tracks last run time |
+| Setting | Default | Env Var | Description |
+|---------|---------|---------|-------------|
+| `MAX_ARTICLES` | 10 | `PAPERBOY_MAX_ARTICLES` | Maximum articles to deliver per run |
+| `TOP_TAGS_LIMIT` | 8 | `PAPERBOY_TOP_TAGS_LIMIT` | Number of interest tags to use for scoring |
+| `EXCLUDED_TAGS` | `{'inbox'}` | — | Tags to ignore when ranking interests |
+| State file | `~/.hermes/.paperboy/state.json` | — | Tracks last run time |
 
 ## License
 

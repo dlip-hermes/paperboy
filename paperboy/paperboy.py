@@ -291,7 +291,7 @@ def main():
 
     # Extract and count tags
     tag_counts = extract_tags_from_bookmarks(favorited)
-    top_tags = get_top_tags(tag_counts, limit=8)
+    top_tags = get_top_tags(tag_counts, limit=int(os.environ.get('PAPERBOY_TOP_TAGS_LIMIT', '8')))
 
     # Get last run time (returns dict with 'full' and 'date' keys)
     last_run_data = get_last_run_time()
