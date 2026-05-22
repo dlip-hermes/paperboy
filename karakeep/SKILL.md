@@ -1,139 +1,78 @@
 ---
 name: karakeep
-description: Use when interacting with Karakeep (bookmark manager) — adding bookmarks, managing lists/tags, searching via query language, RSS feeds, CLI automation, or webhooks.
-version: 1.0.0
-author: ClawHub / karakeep
-license: MIT
+description: Official skill for how to use karakeep (the bookmark manager) and interact with it programmatically.
 metadata:
-  hermes:
-    tags: [bookmarks, cli, productivity, rss, automation]
-    related_skills: []
+  tags: bookmarks, bookmark manager, 2nd brain, productivity
+  openclaw:
+    envVars:
+      - name: KARAKEEP_API_KEY
+        required: true
+        description: The API key for your Karakeep instance
+      - name: KARAKEEP_SERVER_ADDR
+        required: false
+        description: The server address for your Karakeep instance.
+    requires:
+      env:
+        - KARAKEEP_API_KEY
+        - KARAKEEP_SERVER_ADDR
+      bins:
+        - karakeep
+    homepage: https://karakeep.app
+    links:
+      repository: https://github.com/karakeep-app/karakeep
+      documentation: https://docs.karakeep.app
+    emoji: 📦
+    cliHelp: karakeep --help
+    install:
+      - kind: node
+        package: "@karakeep/cli"
+        bins: [karakeep]
 ---
 
 # Karakeep
 
-[Karakeep](https://karakeep.com) is an open-source self-hosted bookmark manager for collecting, organizing, and searching content.
+Karakeep is an open source self-hosted bookmark manager for collecting, organizing, and searching content. This skill covers the core concepts and how to interact with Karakeep via the CLI.
 
-## When to Use
+## When to use
 
-- Adding/managing bookmarks (links, text, media)
-- Organizing bookmarks into lists and tagging them
-- Searching with Karakeep's query language
-- Consuming or publishing RSS feeds
-- Setting up automation rules and webhooks
-- Using the `@karakeep/cli` npm package
+Use this skill when the user wants to interact with their Karakeep instance (adding bookmarks, managing lists/tags, searching, etc.).
 
 ## Core Concepts
 
-### Bookmark Types
-- **Links**: URLs with auto-fetched title, description, image, screenshot, and full-page archive
-- **Text**: Quick notes or text snippets
-- **Media**: Images and PDFs uploaded directly
+### Bookmarks
 
-### CLI Usage Patterns (Learned from Production)
-- **JSON Flag Required**: All Karakeep CLI commands that need machine-readable output MUST use the `--json` flag. Without it, output is human-readable text that's difficult to parse.
-- **Server Address Handling**: The CLI requires explicit `--server-addr` flag or environment variable `KARAKEEP_SERVER_ADDR`. Using bare "karakeep" without server specification often fails with auth errors.
-- **Authentication**: API key can be passed via `--api-key` flag or `KARAKEEP_API_KEY` environment variable. Environment variables are preferred for security.
-- **Search vs List**: The `bookmarks search` command sometimes fails with "Failed to parse URL" server-side errors. When this happens, use `bookmarks list --include-content` and filter results manually.
-- **Tag Format**: Tags can be added with `--tag-name` flag (repeatable for multiple tags). The CLI accepts both plain tags and quoted tags containing spaces.
-
-### Features
-- **Favorites**: Star bookmarks for quick access
-- **Archiving**: Hide from homepage while keeping searchable
-- **Notes**: Personal context attached to any bookmark
-- **Highlights**: Save quotes, summaries, TODOs while reading — searchable across all bookmarks
+- **Bookmarks**: Core entity in Karakeep. Can be one of links, text or media.
+  - **Links**: Save URLs — Karakeep auto-fetches title, description, image, screenshot, and full-page archive.
+  - **Text**: Quick notes or text snippets stored as bookmarks.
+  - **Media**: Images and PDFs uploaded directly.
+- **Favorites**: Star bookmarks for quick access.
+- **Archiving**: Hide bookmarks from the homepage while keeping them searchable.
+- **Notes**: Attach personal context notes to any bookmark.
+- **Highlights**: Save quotes, summaries, or TODOs while reading — searchable across all bookmarks.
 
 ### Lists
-- **Manual lists**: Curated collections by project/topic (private or public)
-- **Smart lists**: Auto-updating via search queries (e.g. `#ai -archived`)
-- **Collaboration**: Invite editors (can add) or viewers (read-only)
+
+- **Manual lists**: Curated collections organized by project or topic. Can be private or public.
+- **Smart lists**: Auto-updating lists powered by search queries (e.g., `#ai -archived`).
+- **Collaboration**: Invite editors (can add bookmarks) or viewers (read-only) to a list.
 
 ### Tags
-Lightweight labels (topics, sources, workflow states). Multiple per bookmark, travel with bookmarks across lists. AI can auto-generate tags.
 
-### RSS Feeds
-- **Consuming**: Auto-monitor external RSS feeds, create bookmarks from new items (hourly, with dedup)
-- **Publishing**: Export any list as RSS feed with unique token
+Lightweight labels for any bookmark (topics, sources, workflow states). Multiple tags per bookmark, tags travel with bookmarks across lists. AI can auto-generate tags when configured.
 
-### Automation
-- **Rule Engine**: If-this-then-that to auto-tag, favorite, or route bookmarks
-- **Webhooks**: Subscribe to bookmark events (add/update/archive)
+### Search Query Language
 
-## CLI Installation
+Karakeep has a powerful search query language for finding the right bookmarks. It supports full-text search, boolean logic, qualifiers, and more.
 
-```bash
-npm install -g @karakeep/cli
-```
+#### Basic Syntax
 
-Or via Docker:
-```bash
-docker run --rm ghcr.io/karakeep-app/karakeep-cli:release --help
-```
+- Spaces between conditions act as implicit AND.
+- Use `and` / `or` keywords for explicit boolean logic.
+- Prefix any qualifier with `-` or `!` to negate it (e.g., `-is:archived`, `!is:fav`).
+- Use parentheses `()` for grouping (note: groups themselves can't be negated).
+- Any text not part of a qualifier is treated as full-text search (e.g., `machine learning is:fav`).
 
-## Authentication
-
-**Option 1 — Environment variables (recommended):**
-```bash
-export KARAKEEP_API_KEY="..."
-export KARAKEEP_SERVER_ADDR="https://cloud.karakeep.com"  # optional, defaults to cloud
-```
-
-**Option 2 — CLI flags:**
-```bash
-karakeep --api-key <key> --server-addr <addr> <command>
-```
-
-**Important:** To get JSON output suitable for scripting, always use the `--json` flag:
-```bash
-karakeep --server-addr https://your.karakeep.instance --json whoami
-```
-
-**Verify:**
-```bash
-karakeep whoami
-```
-
-Get your API key from Karakeep instance settings page.
-
-## Bookmark Commands
-
-```bash
-# Add a link bookmark
-karakeep bookmarks add --link "https://example.com"
-
-# Add with tags and to a specific list
-karakeep bookmarks add --link "https://example.com" --tag-name "reading" --list-id <list-id>
-
-# Add a text bookmark
-karakeep bookmarks add --note "Remember to review the PR"
-
-# Get bookmark details
-karakeep bookmarks get <bookmark-id>
-
-# List bookmarks (with optional query filter)
-karakeep bookmarks list --query "is:fav #important"
-
-# Archive/unarchive
-karakeep bookmarks archive <bookmark-id>
-karakeep bookmarks unarchive <bookmark-id>
-
-# Add/remove tags
-karakeep bookmarks add-tag <bookmark-id> --tag-name "work"
-karakeep bookmarks remove-tag <bookmark-id> --tag-name "work"
-```
-
-Run `karakeep --help` for all available commands.
-
-## Search Query Language
-
-### Basic Syntax
-- Spaces between conditions = implicit AND
-- Use `and` / `or` for explicit boolean logic
-- Prefix qualifiers with `-` or `!` to negate (e.g. `-is:archived`, `!is:fav`)
-- Use `()` for grouping (groups can't be negated)
-- Unqualified text = full-text search
-
-### Qualifiers
+#### Qualifiers
 
 | Qualifier | Description | Example |
 |-----------|-------------|---------|
@@ -144,20 +83,20 @@ Run `karakeep --help` for all available commands.
 | `is:link` | Link bookmarks | `is:link` |
 | `is:text` | Text/note bookmarks | `is:text` |
 | `is:media` | Media bookmarks (images/PDFs) | `is:media` |
-| `is:broken` | Failed crawls or non-2xx status | `is:broken` |
+| `is:broken` | Bookmarks with failed crawls or non-2xx status codes | `is:broken` |
 | `url:<value>` | Match URL substring | `url:github.com` |
-| `title:<value>` | Match title substring | `title:rust`, `title:"my title"` |
-| `#<tag>` or `tag:<tag>` | Match specific tag | `#important`, `tag:"work in progress"` |
-| `list:<name>` | Match bookmarks in a list | `list:reading`, `list:"to review"` |
-| `after:<date>` | Created on or after (YYYY-MM-DD) | `after:2024-01-01` |
-| `before:<date>` | Created on or before (YYYY-MM-DD) | `before:2024-12-31` |
-| `age:<time-range>` | Filter by age. `<` = max, `>` = min. Units: `d/w/m/y` | `age:<1d`, `age:>2w`, `age:<6m` |
-| `feed:<name>` | Bookmarks from specific RSS feed | `feed:Hackernews` |
-| `source:<value>` | Match capture source: `api`, `web`, `cli`, `mobile`, `extension`, `singlefile`, `rss`, `import` | `source:rss`, `-source:web` |
+| `title:<value>` | Match title substring (supports quoted strings) | `title:rust`, `title:"my title"` |
+| `#<tag>` or `tag:<tag>` | Match bookmarks with specific tag (supports quoted strings) | `#important`, `tag:"work in progress"` |
+| `list:<name>` | Match bookmarks in a specific list (supports quoted strings) | `list:reading`, `list:"to review"` |
+| `after:<date>` | Created on or after date (YYYY-MM-DD) | `after:2024-01-01` |
+| `before:<date>` | Created on or before date (YYYY-MM-DD) | `before:2024-12-31` |
+| `age:<time-range>` | Filter by creation age. Use `<` / `>` for max/min age. Units: `d` (days), `w` (weeks), `m` (months), `y` (years) | `age:<1d`, `age:>2w`, `age:<6m` |
+| `feed:<name>` | Bookmarks imported from a specific RSS feed | `feed:Hackernews` |
+| `source:<value>` | Match by capture source. Values: `api`, `web`, `cli`, `mobile`, `extension`, `singlefile`, `rss`, `import` | `source:rss`, `-source:web` |
 
-### Example Queries
+#### Examples
 
-```bash
+```
 # Favorited bookmarks from 2024 tagged "important"
 is:fav after:2024-01-01 before:2024-12-31 #important
 
@@ -170,67 +109,103 @@ is:archived and (list:reading or #work)
 # Recent bookmarks from the last week
 age:<1w
 
-# Full-text search with qualifiers
+# Full-text search combined with qualifiers
 machine learning is:fav -is:archived
 ```
 
-## List Commands
+### RSS Feeds
+
+Karakeep can also be used to consume RSS feeds, but also can itself act as an RSS feed publisher.
+- **Publishing**: Export any list as an RSS feed with a unique token.
+- **Consuming**: Auto-monitor external RSS feeds and create bookmarks from new items (hourly, with duplicate detection).
+
+### Automation
+
+- **Rule Engine**: If-this-then-that rules to auto-tag, favorite, or route bookmarks to lists.
+- **Webhooks**: Subscribe to bookmark events (add/update/archive).
+
+## Interacting with Karakeep via the CLI
+
+### Installation
 
 ```bash
-# Create a manual list
-karakeep lists create --name "Reading List"
-
-# Create a smart list (auto-updating query)
-karakeep lists create --name "AI News" --query "#ai -is:archived"
-
-# Get list details
-karakeep lists get <list-id>
-
-# Invite collaborators
-karakeep lists invite <list-id> --email "colleague@example.com" --role "editor"
-
-# Add bookmark to list
-karakeep lists add-bookmark <list-id> --bookmark-id <bookmark-id>
+npm install -g @karakeep/cli
 ```
 
-### Common Pitfalls
+Or via Docker:
 
-1. **Forgetting to set API key**: Commands fail with auth errors. Use `karakeep whoami` to verify.
-2. **Smart list query syntax errors**: Start simple, test incrementally. Use `--query` flag with quotes.
-3. **Tag vs list confusion**: Tags are lightweight (multiple per bookmark), lists are containers (bookmarks belong to them).
-4. **Duplicate RSS items**: Karakeep has built-in dedup by URL/title combo — but within a short time window, not forever.
-5. **Missing JSON flag for scripting**: When using Karakeep CLI in scripts, always use `--json` flag for machine-readable output.
-6. **`bookmarks search` broken (server-side URL parse error)**: If you get "Failed to parse URL" errors on search, use `bookmarks list` instead and filter in Python. The `--limit` flag does NOT exist on `list` — only `--include-archived` and `--include-content`.
-7. **ENV var required for JSON output**: Some endpoints require `export KARAKEEP_SERVER_ADDR="https://your.server"` before the `--server-addr` flag works reliably for JSON output. Test with `karakeep --json whoami` first.
-8. **CLI v0.31.0 has no `delete` subcommand**: The `karakeep bookmarks delete <id>` command does NOT exist in v0.31.0 despite being documented in some references. The tRPC endpoint `bookmarks.deleteBookmark` exists server-side but requires a write-capable API key. Use the Karakeep web UI for deletion.
-9. **Read-only API key (`ak2_` prefix)**: API keys starting with `ak2_` can read but may not write. Destructive operations (delete) return "Bookmark not found" while reads work. The `bookmarks update --note` command DOES work with read-only keys (uses a different endpoint). For full write access, generate a new key in Karakeep settings.
-10. **`requests` module not available in Nix environment**: When writing Python scripts that call Karakeep or other APIs, use `urllib.request` from stdlib instead of `requests`. The `requests` package is not installed in the Nix Python environment. Alternatively, shell out to `curl` via `subprocess.run()`.
-11. **`createdAt:>`, `modifiedAt:>` and similar qualifiers are silently ignored**: The only valid date-filtering qualifiers are `after:<date>` and `before:<date>`. Any other syntax like `createdAt:>2026-05-21` or `modifiedAt:<2026-05-20` is **silently ignored** by the CLI — it just returns the most recent N bookmarks regardless. If you use these in a script, you'll get incorrect results without any error message. Always use `after:` / `before:` for date filtering. The `after:` qualifier accepts full ISO 8601 timestamps like `after:2026-05-21T22:44:33.072Z` in addition to `after:2026-05-21` date format.
-
-## Automation & Advanced Usage\n\nSee `references/article-discovery.md` for a complete workflow to automatically discover and add articles based on your favorited bookmarks.\n\n## Scripting Best Practices\n\nWhen using Karakeep CLI in scripts and automation:\n\n1. **Always use `--json` flag** for machine-readable output suitable for parsing\n2. **Handle authentication properly** via environment variables or config files\n3. **Implement error handling** for network issues, rate limiting, and unexpected responses\n4. **Add rate limiting** between requests to be respectful to the service\n5. **Validate output structure** before accessing fields to prevent script failures\n\nExample patterns:\n```bash\n# Get JSON output for parsing\nkarakeep --server-addr https://your.instance --json bookmarks search \"is:fav\"\n\n# In Python scripts, parse JSON safely:\nimport json, subprocess\nresult = subprocess.run([\"karakeep\", \"--server-addr\", \"https://instance\", \"--json\", \"bookmarks\", \"search\", \"is:fav\"], capture_output=True, text=True)\ndata = json.loads(result.stdout) if result.returncode == 0 else []\n```\n\nSee `references/article-discovery.md` for complete workflow implementations.
-See `references/valid-vs-invalid-search-qualifiers.md` for the difference between supported and silently-ignored search qualifiers.
-
-## One-Shot Recipes
-
-**Add a link with tags and put it in a list:**
 ```bash
-KARAKEEP_API_KEY="your-key" karakeep bookmarks add \
-  --link "https://example.com/article" \
-  --tag-name "reading" \
-  --tag-name "ai" \
-  --list-id <your-list-id>
+docker run --rm ghcr.io/karakeep-app/karakeep-cli:release --help
 ```
 
-**Find all broken bookmarks and fix them:**
+### Authentication
+
+The CLI requires an API key and server address. Get the API key from your Karakeep instance's settings page.
+
+**Option 1 — Environment variables (recommended):**
+
 ```bash
-karakeep bookmarks list --query "is:broken" --format json | \
-  jq -r '.bookmarks[].id' | while read id; do
-    karakeep bookmarks recrawl $id
-  done
+export KARAKEEP_API_KEY="***"
+
+# If self-hosted, pass the server address as well. It defaults to the cloud instance if not set:
+export KARAKEEP_SERVER_ADDR="https://cloud.karakeep.com"
 ```
 
-**Export a list as RSS:**
+**Option 2 — CLI flags:**
+
 ```bash
-karakeep lists rss-token <list-id>
-# Returns unique RSS URL for that list
+karakeep --api-key <key> --server-addr <addr> <command>
 ```
+
+**Verify authentication:**
+
+```bash
+karakeep whoami
+```
+
+### Bookmark Commands
+
+Run `karakeep --help` to see all available commands, but the most important ones are:
+
+```bash
+# Add a link bookmark
+karakeep bookmarks add --link "https://example.com"
+
+# Add a link with tags and to a specific list
+karakeep bookmarks add --link "https://example.com" --tag-name "reading" --list-id <list-id>
+
+# Add a text bookmark
+karakeep bookmarks add --note "Remember to review the PR"
+
+# Get bookmark details
+karakeep bookmarks get <bookmark-id>
+karakeep bookmarks get <bookmark-id> --include-content
+
+# Update a bookmark
+karakeep bookmarks update <bookmark-id> --title "New Title"
+karakeep bookmarks update <bookmark-id> --archive
+karakeep bookmarks update <bookmark-id> --favourite
+karakeep bookmarks update-tags <bookmark-id> --add-tag "important"
+karakeep bookmarks update-tags <bookmark-id> --remove-tag "old-tag"
+
+# List management
+karakeep lists list
+karakeep lists get --list <list-id>
+karakeep lists add-bookmark --list <list-id> --bookmark <bookmark-id>
+karakeep lists remove-bookmark --list <list-id> --bookmark <bookmark-id>
+karakeep lists delete <list-id>
+
+
+# List all bookmarks
+karakeep bookmarks list
+
+# Search bookmarks
+karakeep bookmarks search "is:fav #work"
+karakeep bookmarks search "rust" --limit 10 --sort-order relevance
+karakeep bookmarks search "is:tagged" --all   # paginate through all results
+
+# Delete a bookmark
+karakeep bookmarks delete <bookmark-id>
+```
+
+You can always pass `--json` to get raw JSON output instead of pretty-printed output.
