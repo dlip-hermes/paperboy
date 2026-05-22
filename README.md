@@ -52,6 +52,35 @@ The script loops until the list is empty, so it handles feeds that keep pushing 
  8:00 AM ─ recycling-cleanup  ♻️  Recycling bin emptied
 ```
 
+### Keeping it tidy
+
+RSS feeds can pile up quickly. The **Recycling smart list** pattern keeps your dashboard focused on fresh content:
+
+1. **Create a "Recycling" smart list** — Use a search query that captures RSS articles older than 3 days that you haven't favorited:
+
+   ```
+   age:>3d source:rss -is:fav
+   ```
+
+2. **Auto-delete daily at 8 AM** — Run the setup script to schedule a daily purge:
+
+   ```bash
+   bash paperboy/setup-recycling.sh --list "Recycling" --deliver origin
+   ```
+
+   This deletes all bookmarks in the Recycling list every morning after Paperboy has delivered your briefing. The cleanup script loops until the list is empty, so it handles feeds that keep pushing items during deletion.
+
+3. **Or archive instead of delete** — If you'd rather keep them searchable, run this via the Karakeep CLI:
+
+   ```bash
+   karakeep bookmarks search "list:Recycling" --limit 50 --json | \
+     jq -r '.bookmarks[].id' | xargs -I{} karakeep bookmarks update {} --archive
+   ```
+
+Paperboy still searches archived bookmarks for interest analysis, so archiving doesn't affect your tag learning.
+
+> **Tip:** The `age:>3d source:rss -is:fav` query is just an example. Combine any Karakeep qualifiers — `is:link`, `#tag`, `after:2026-01-01` — to build your ideal curation flow.
+
 ### Manual setup
 
 ```bash
@@ -123,32 +152,6 @@ hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
 2. **Favorite what interests you** — Star bookmarks you find interesting. Paperboy learns from your favorited tags to score future articles.
 
 3. **Paperboy runs daily** — At 7 AM you get the raw article list, at 7:15 AM the radio briefing with audio.
-
-### Keeping it tidy
-
-RSS feeds can pile up quickly. To keep your Karakeep dashboard focused on fresh content:
-
-1. **Create a smart list with a search query** — Ask Hermes (or create it directly in Karakeep) using a query like:
-
-   ```
-   age:>3d source:rss -is:fav
-   ```
-
-   This captures RSS articles older than 3 days that you haven't favorited — the perfect candidates for cleanup.
-
-2. **Archive them daily** — `"Every day at 8 AM, archive all bookmarks in the 'Old RSS' smart list."`
-
-   Or run it directly via the Karakeep CLI:
-   ```bash
-   karakeep bookmarks search "list:Old RSS" --limit 50 --json | \
-     jq -r '.bookmarks[].id' | xargs -I{} karakeep bookmarks update {} --archive
-   ```
-
-Paperboy still searches archived bookmarks for interest analysis, so archiving doesn't affect your tag learning.
-
-### Going further — custom smart list queries
-
-The `age:>3d source:rss -is:fav` query above is just an example. You can create smart lists with any Karakeep search query — combine qualifiers like `is:link`, `#tag`, or `after:2026-01-01` to build exactly the curation flow you want.
 
 ## Features
 
