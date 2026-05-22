@@ -98,12 +98,25 @@ hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
 
 ### Keeping it tidy
 
-RSS feeds can pile up. To keep your Karakeep dashboard clean:
+RSS feeds can pile up quickly. To keep your Karakeep dashboard focused on fresh content:
 
-1. **Create a smart list** — `"Create a Karakeep smart list called 'Old RSS' that captures bookmarks from RSS feeds that are over 2 days old."`
+1. **Create a smart list with a search query** — Ask Hermes (or create it directly in Karakeep) using a query like:
+
+   ```
+   age:>3d source:rss -is:fav
+   ```
+
+   This captures RSS articles older than 3 days that you haven't favorited — the perfect candidates for cleanup.
+
 2. **Archive them daily** — `"Every day at 8 AM, archive all bookmarks in the 'Old RSS' smart list."`
 
-This keeps your Karakeep focused on fresh content while Paperboy still searches archived bookmarks for interest analysis.
+   Or run it directly via the Karakeep CLI:
+   ```bash
+   karakeep bookmarks search "list:Old RSS" --limit 50 --json | \
+     jq -r '.bookmarks[].id' | xargs -I{} karakeep bookmarks update {} --archive
+   ```
+
+Paperboy still searches archived bookmarks for interest analysis, so archiving doesn't affect your tag learning.
 
 ## Features
 
