@@ -118,6 +118,27 @@ RSS feeds can pile up quickly. To keep your Karakeep dashboard focused on fresh 
 
 Paperboy still searches archived bookmarks for interest analysis, so archiving doesn't affect your tag learning.
 
+### Going further — Recycling bin auto-cleanup
+
+For more aggressive cleanup, set up a **Recycling smart list** and auto-delete its contents daily. This is useful for feeds you want to browse but not keep:
+
+```
+source:rss
+```
+
+Then schedule a daily purge at 8 AM (after Paperboy has run at 7 AM):
+
+```bash
+hermes cron create \
+  --name recycling-cleanup \
+  --script cleanup-recycling.py \
+  --schedule "0 8 * * *" \
+  --deliver origin \
+  --no-agent
+```
+
+See `paperboy/scripts/cleanup-recycling.py` for the implementation — it fetches all bookmarks in the named list and deletes them one by one.
+
 ## Features
 
 - **Interest Analysis** — Extracts and ranks tags from your favorited bookmarks (frequency-weighted)
