@@ -13,6 +13,32 @@ cp -r paperboy ~/.hermes/skills/research/
 cp -r karakeep ~/.hermes/skills/research/
 ```
 
+Once installed, ask Hermes to set up a daily cron job (e.g., 7 AM):
+
+> *"Set up Paperboy to run daily at 7 AM and deliver the results to me."*
+
+Paperboy will then fetch recent articles, score them against your interests, and deliver a summary each morning.
+
+## Workflow
+
+1. **Add RSS feeds to Karakeep** — Configure RSS feeds in Karakeep's settings. New articles from those feeds are automatically captured as bookmarks.
+2. **Favorite what interests you** — Star bookmarks you find interesting. Paperboy learns from your favorited tags to score future articles.
+3. **Paperboy runs daily** — At your scheduled time, Paperboy queries Karakeep for new bookmarks, scores them against your interest tags, and delivers the top picks.
+
+### Keeping it tidy
+
+RSS feeds can pile up quickly. To keep your Karakeep dashboard clean:
+
+1. **Create a smart list** — Ask Hermes to make a smart list that collects old RSS articles:
+   > *"Create a Karakeep smart list called 'Old RSS' that captures bookmarks from RSS feeds that are over 2 days old."*
+
+   This automatically moves aged articles into a separate list away from your main view.
+
+2. **Ask Hermes to archive them daily** — Pair it with a daily cleanup:
+   > *"Every day at 8 AM, archive all bookmarks in the 'Old RSS' smart list."*
+
+   This keeps your Karakeep focused on fresh content while Paperboy still searches archived bookmarks for interest analysis.
+
 ## Features
 
 - **Interest Analysis** — Extracts and ranks tags from your favorited bookmarks (frequency-weighted)
