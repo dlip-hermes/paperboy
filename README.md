@@ -22,6 +22,9 @@ Paperboy will then fetch recent articles, score them against your interests, and
 ## Workflow
 
 1. **Add RSS feeds to Karakeep** — Configure RSS feeds in Karakeep's settings. New articles from those feeds are automatically captured as bookmarks.
+
+   > **Tip:** Enable `INFERENCE_ENABLE_AUTO_SUMMARIZATION=true` in your Karakeep server config environment to automatically generate AI summaries for all bookmarks. Paperboy uses these summaries in its preview output — richer summaries mean better article previews.
+
 2. **Favorite what interests you** — Star bookmarks you find interesting. Paperboy learns from your favorited tags to score future articles.
 3. **Paperboy runs daily** — At your scheduled time, Paperboy queries Karakeep for new bookmarks, scores them against your interest tags, and delivers the top picks.
 
@@ -77,8 +80,6 @@ python3 paperboy/paperboy.py
 | `TOP_TAGS_LIMIT` | 8 | Number of interest tags to use for scoring |
 | `EXCLUDED_TAGS` | `{'inbox'}` | Tags to ignore when ranking interests |
 | State file | `~/.hermes/.paperboy/strategy_state.json` | Tracks last run time |
-
-> **Tip:** Enable `INFERENCE_ENABLE_AUTO_SUMMARIZATION=true` in your Karakeep server config environment to automatically generate AI summaries for all bookmarks. Paperboy uses these summaries in its preview output — richer summaries mean better article previews.
 
 ## License
 
