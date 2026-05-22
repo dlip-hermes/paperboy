@@ -23,7 +23,8 @@ cat > ~/.hermes/scripts/paperboy.sh << 'WRAPPER'
 #!/bin/bash
 # Paperboy launcher — delegates to the skill-owned Python script
 # Writes to .paperboy/paperboy.md for follow-up agent job to pick up
-export PAPERBOY_MAX_ARTICLES=10
+export PAPERBOY_MAX_ARTICLES=50
+export PAPERBOY_TOP_TAGS_LIMIT=20
 exec /var/lib/hermes/.nix-profile/bin/python3 \
   ~/.hermes/skills/research/paperboy/scripts/paperboy.py \
   --output-file ~/.hermes/.paperboy/paperboy.md
