@@ -50,7 +50,7 @@ python3 paperboy/paperboy.py
 | `MAX_ARTICLES` | 10 | Maximum articles to deliver per run |
 | `TOP_TAGS_LIMIT` | 8 | Number of interest tags to use for scoring |
 | `EXCLUDED_TAGS` | `{'inbox'}` | Tags to ignore when ranking interests |
-| State file | `~/.hermes/.article_discovery/strategy_state.json` | Tracks last run time |
+| State file | `~/.hermes/.paperboy/strategy_state.json` | Tracks last run time |
 
 ## License
 

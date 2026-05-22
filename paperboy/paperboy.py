@@ -126,7 +126,7 @@ def get_last_run_time():
     """Get the last run time from strategy state file, converted to UTC for Karakeep compatibility."""
     home = os.path.expanduser('~')
     hermes_dir = os.path.join(home, '.hermes')
-    article_discovery_dir = os.path.join(hermes_dir, '.article_discovery')
+    article_discovery_dir = os.path.join(hermes_dir, '.paperboy')
     strategy_state_file = os.path.join(article_discovery_dir, "strategy_state.json")
 
     # Default to 24 hours ago if no state file (in UTC format for Karakeep)
@@ -177,7 +177,7 @@ def save_last_run_time():
     """Save the current time as last run time."""
     home = os.path.expanduser('~')
     hermes_dir = os.path.join(home, '.hermes')
-    article_discovery_dir = os.path.join(hermes_dir, '.article_discovery')
+    article_discovery_dir = os.path.join(hermes_dir, '.paperboy')
     strategy_state_file = os.path.join(article_discovery_dir, "strategy_state.json")
 
     # Ensure directory exists
