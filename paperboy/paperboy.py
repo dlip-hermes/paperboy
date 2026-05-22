@@ -167,6 +167,7 @@ def get_last_run_time():
 
     return {'full': default_full, 'date': default_date}
 
+
 def save_last_run_time():
     """Save the current time as last run time."""
     home = os.path.expanduser('~')
@@ -321,8 +322,12 @@ def main():
     scored_articles.sort(key=lambda x: x['score'], reverse=True)
 
     # Take top N articles (default 10, overridable via PAPERBOY_MAX_ARTICLES env var)
+    # Use -1 for no limit
     MAX_ARTICLES = int(os.environ.get('PAPERBOY_MAX_ARTICLES', '10'))
-    top_articles = scored_articles[:MAX_ARTICLES]
+    if MAX_ARTICLES == -1:
+        top_articles = scored_articles
+    else:
+        top_articles = scored_articles[:MAX_ARTICLES]
 
     # Generate article info for selected articles
     articles_info = []
