@@ -6,23 +6,51 @@ The `karakeep/` folder contains the Karakeep Hermes Agent skill (imported from [
 
 ## Installation
 
-### Quick setup (recommended)
+### Quick Setup
+
+Clone the repo and run the setup script for what you need:
 
 ```bash
-# Clone the repo
 git clone https://github.com/dlip-hermes/paperboy.git ~/paperboy
 cd ~/paperboy
+```
 
-# Run the setup script — creates both cron jobs
+### Paperboy (daily article discovery + radio briefing)
+
+```bash
 bash paperboy/setup-cron.sh --deliver origin
 ```
 
-The setup script:
-1. Installs both skills (paperboy + karakeep)
-2. Creates the `paperboy.sh` bash wrapper at `~/.hermes/scripts/`
-3. Creates the state directory at `~/.hermes/.paperboy/`
-4. Sets up both cron jobs (paperboy at 7 AM, paperboy-briefing at 7:15 AM)
-5. Chains the briefing job to receive the raw output as fallback context
+This installs both skills, creates the bash wrapper, state directory, and both cron jobs:
+
+| Time | Job | What it does |
+|------|-----|-------------|
+| 7:00 AM | `paperboy` | Discovers articles, delivers raw list to Telegram |
+| 7:15 AM | `paperboy-briefing` | Radio briefing + TTS audio with embedded links |
+
+### Recycling bin auto-cleanup (optional)
+
+If you have a Recycling smart list that accumulates RSS items, schedule an auto-purge:
+
+```bash
+bash paperboy/setup-recycling.sh --list "Recycling" --deliver origin
+```
+
+This installs the cleanup script and creates a daily cron job at 8 AM:
+
+| Time | Job | What it does |
+|------|-----|-------------|
+| 8:00 AM | `recycling-cleanup` | Deletes all bookmarks in the named smart list |
+
+The script loops until the list is empty, so it handles feeds that keep pushing items during deletion.
+
+### Visual schedule
+
+```
+ 7:00 AM ─ paperboy           🗞️  Raw article list delivered
+ 7:15 AM ─ paperboy-briefing  📻  Radio briefing + TTS audio
+ 8:00 AM ─ recycling-cleanup  ♻️  Recycling bin emptied
+```
 
 ### Manual setup
 
@@ -118,26 +146,9 @@ RSS feeds can pile up quickly. To keep your Karakeep dashboard focused on fresh 
 
 Paperboy still searches archived bookmarks for interest analysis, so archiving doesn't affect your tag learning.
 
-### Going further — Recycling bin auto-cleanup
+### Going further — custom smart list queries
 
-For more aggressive cleanup, set up a **Recycling smart list** and auto-delete its contents daily. This is useful for feeds you want to browse but not keep:
-
-```
-source:rss
-```
-
-Then schedule a daily purge at 8 AM (after Paperboy has run at 7 AM):
-
-```bash
-hermes cron create \
-  --name recycling-cleanup \
-  --script cleanup-recycling.py \
-  --schedule "0 8 * * *" \
-  --deliver origin \
-  --no-agent
-```
-
-See `paperboy/scripts/cleanup-recycling.py` for the implementation — it fetches all bookmarks in the named list and deletes them one by one.
+The `age:>3d source:rss -is:fav` query above is just an example. You can create smart lists with any Karakeep search query — combine qualifiers like `is:link`, `#tag`, or `after:2026-01-01` to build exactly the curation flow you want.
 
 ## Features
 
