@@ -52,6 +52,8 @@ python3 paperboy/paperboy.py
 | `EXCLUDED_TAGS` | `{'inbox'}` | Tags to ignore when ranking interests |
 | State file | `~/.hermes/.paperboy/strategy_state.json` | Tracks last run time |
 
+> **Tip:** Enable `INFERENCE_ENABLE_AUTO_SUMMARIZATION=true` in your Karakeep server config environment to automatically generate AI summaries for all bookmarks. Paperboy uses these summaries in its preview output — richer summaries mean better article previews.
+
 ## License
 
 MIT
