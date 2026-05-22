@@ -45,9 +45,12 @@ Paperboy uses a **two-job hybrid approach** for delivery, combining the reliabil
 
 **How the relay works:**
 
-1. `paperboy.sh` writes output to both stdout (for cron delivery) AND `~/.hermes/.paperboy/paperboy.md` (the shared file)
-2. At 7:00 AM, `paperboy` delivers the raw output to Telegram immediately
-3. At 7:15 AM, `paperboy-briefing` reads the `.paperboy/paperboy.md` file and creates a radio briefing + TTS audio
+1. `paperboy.sh` runs and outputs article data to stdout
+2. Hermes cron captures stdout and delivers it to Telegram (raw output) at 7:00 AM
+3. Hermes cron also injects the same stdout into the briefing job's context via `context_from`
+4. At 8:54 AM, the briefing agent reads the injected context and creates a radio briefing + TTS audio
+
+No file relay is needed. The `--output-file` flag is not used — stdout is the single source of truth for both the raw delivery and the briefing context.
 
 **Agent job prompt (exact text):** The agent-mode cron job has no script. Its prompt reads the shared file:
 
@@ -57,7 +60,22 @@ Paperboy uses a **two-job hybrid approach** for delivery, combining the reliabil
 > 
 > Otherwise: (1) Compose a radio-style news briefing. For each article, embed its preview URL as a markdown link on the title text (e.g. [Title](url)) followed by a short summary. (2) Send the transcript as a text message. (3) Generate TTS audio of just the spoken portion (no URLs, no markdown) using text_to_speech(). (4) Send the audio file via send_message() with MEDIA:path in the message text.
 
-**Context chaining (optional):** Set `context_from` on the agent job to the raw job's ID — this injects the raw output as fallback context if the file read fails.
+### Context Chaining via `context_from`
+
+The `paperboy-briefing` cron job has `context_from` set to the `paperboy` job ID. Hermes cron automatically captures stdout from the raw job and injects it as context into the briefing job's prompt. This means:
+
+- **No file relay needed** — the paperboy script no longer writes to a shared file
+- **No `--output-file` flag** — stdout is captured and delivered by cron directly
+- **Reliable data flow** — the briefing agent always sees the raw article output in its context
+- **Dual-path delivery** — the raw stdout is also delivered to Telegram via the no_agent cron, so you get both the raw list and the polished briefing
+
+**How to set it up:**
+```bash
+# Get the raw job's ID
+hermes cron list
+# Then set context_from to chain them
+hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
+```
 
 **Output paths:**
 - **No articles found**: Raw job delivers "Sorry mate..." → Briefing job sees same message, forwards verbatim. No audio.
