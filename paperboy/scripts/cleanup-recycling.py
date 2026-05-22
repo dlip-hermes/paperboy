@@ -63,25 +63,41 @@ def main():
         print(f"'{LIST_NAME}' is already empty. Nothing to delete.")
         return 0
 
-    print(f"Deleting {len(bookmarks)} bookmark(s) from '{LIST_NAME}'...")
-    deleted_count = 0
-    for bm in bookmarks:
-        bm_id = bm.get('id')
-        title = (bm.get('title') or 'No title')[:50]
-        if bm_id:
-            del_result = run_karakeep(['bookmarks', 'delete', bm_id])
-            if del_result is not None:
-                deleted_count += 1
-                print(f"  ✓ [{bm_id}] {title}")
-            else:
-                print(f"  ✗ [{bm_id}] {title} — delete failed")
+    # Keep deleting in batches until the list is empty
+    # (feeds may keep pushing items during deletion)
+    total_deleted = 0
+    total_runs = 0
+    max_runs = 10  # safety limit
 
-    print(f"\nDone. Deleted {deleted_count}/{len(bookmarks)} bookmarks.")
+    while bookmarks and total_runs < max_runs:
+        total_runs += 1
+        if total_runs > 1:
+            # Re-query for remaining items
+            result = run_karakeep(['bookmarks', 'search', f'list:{LIST_NAME}', '--limit', '100'])
+            if not result:
+                break
+            bookmarks = result.get('bookmarks', [])
+            if not bookmarks:
+                break
+            print(f"  ↳ Batch {total_runs}: {len(bookmarks)} more item(s) found...")
+
+        for bm in bookmarks:
+            bm_id = bm.get('id')
+            title = (bm.get('title') or 'No title')[:50]
+            if bm_id:
+                del_result = run_karakeep(['bookmarks', 'delete', bm_id])
+                if del_result is not None:
+                    total_deleted += 1
+                    print(f"  ✓ [{bm_id}] {title}")
+                else:
+                    print(f"  ✗ [{bm_id}] {title} — delete failed")
+
+    print(f"\nDone. Deleted {total_deleted} bookmark(s) in {total_runs} batch(es).")
 
     # Output a short summary for cron delivery
-    if deleted_count > 0:
+    if total_deleted > 0:
         print("---")
-        print(f"♻️ Recycling bin emptied: {deleted_count} bookmark(s) deleted from '{LIST_NAME}'.")
+        print(f"♻️ Recycling bin emptied: {total_deleted} bookmark(s) deleted from '{LIST_NAME}'.")
     else:
         print("No bookmarks were deleted.")
 
