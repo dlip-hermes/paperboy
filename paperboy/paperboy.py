@@ -132,7 +132,7 @@ def get_last_run_time():
     home = os.path.expanduser('~')
     hermes_dir = os.path.join(home, '.hermes')
     article_discovery_dir = os.path.join(hermes_dir, '.paperboy')
-    strategy_state_file = os.path.join(article_discovery_dir, "strategy_state.json")
+    strategy_state_file = os.path.join(article_discovery_dir, "state.json")
 
     # Default: 48 hours ago in UTC (wider window for safety)
     import time
@@ -172,7 +172,7 @@ def save_last_run_time():
     home = os.path.expanduser('~')
     hermes_dir = os.path.join(home, '.hermes')
     article_discovery_dir = os.path.join(hermes_dir, '.paperboy')
-    strategy_state_file = os.path.join(article_discovery_dir, "strategy_state.json")
+    strategy_state_file = os.path.join(article_discovery_dir, "state.json")
 
     # Ensure directory exists
     os.makedirs(article_discovery_dir, exist_ok=True)

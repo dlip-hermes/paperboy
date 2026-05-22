@@ -41,25 +41,29 @@ Paperboy uses a **two-job hybrid approach** for delivery, combining the reliabil
 | `paperboy` | 7:00 AM | `no_agent` + `script` | Runs discovery, delivers raw article list verbatim to Telegram | ✅ High |
 | `paperboy-briefing` | 7:15 AM | Agent mode (no script) | Reads `paperboy.md`, composes radio briefing + TTS audio | ⚠️ Medium |
 
+> **⚠️ Scheduler limitation:** Agent-mode cron jobs are only processed during natural scheduler ticks (every ~60 min). `cronjob run <id>` queues a job but `cronjob run` doesn't trigger immediate execution, and `hermes cron tick` doesn't process agent-mode jobs. To test the briefing flow, execute it manually — the scheduled 7:15 AM run works when the natural tick picks it up.
+
 **How the relay works:**
 
 1. `paperboy.sh` writes output to both stdout (for cron delivery) AND `~/.hermes/.paperboy/paperboy.md` (the shared file)
 2. At 7:00 AM, `paperboy` delivers the raw output to Telegram immediately
 3. At 7:15 AM, `paperboy-briefing` reads the `.paperboy/paperboy.md` file and creates a radio briefing + TTS audio
 
-**Agent job prompt:** The agent-mode cron job has no script. Instead, its prompt reads the shared file:
+**Agent job prompt (exact text):** The agent-mode cron job has no script. Its prompt reads the shared file:
 
 > The paperboy cron job ran at 7 AM and wrote its output to ~/.hermes/.paperboy/paperboy.md. Read that file.
 > 
-> If the file contains "Sorry mate there's no new news at the moment", just forward that message verbatim (no audio needed).
+> If the file contains "Sorry mate there's no new news at the moment", just forward that message verbatim via send_message() (no audio needed). STOP after that.
 > 
-> Otherwise: Compose a radio-style news briefing from the articles. For each article, embed its preview URL as a markdown link on the title text (e.g. [Article Title](url)) followed by a short conversational summary. Send the full transcript as a text message, then generate TTS audio of just the spoken portion (no URLs, no markdown) and send it.
+> Otherwise: (1) Compose a radio-style news briefing. For each article, embed its preview URL as a markdown link on the title text (e.g. [Title](url)) followed by a short summary. (2) Send the transcript as a text message. (3) Generate TTS audio of just the spoken portion (no URLs, no markdown) using text_to_speech(). (4) Send the audio file via send_message() with MEDIA:path in the message text.
 
 **Context chaining (optional):** Set `context_from` on the agent job to the raw job's ID — this injects the raw output as fallback context if the file read fails.
 
 **Output paths:**
 - **No articles found**: Raw job delivers "Sorry mate..." → Briefing job sees same message, forwards verbatim. No audio.
 - **Articles found**: Raw job delivers article list → Briefing job composes radio briefing + TTS voice message.
+
+> **ℹ️ `deliver: origin` vs `send_message()`:** Cron's `deliver: origin` auto-detects the current chat and works correctly. But `send_message(target="origin")` returns "Unknown platform: origin" — it requires an explicit target like `"telegram:Dane"`. Agent prompts should use explicit target names or rely on cron delivery.
 
 > **Note on raw output integrity:** The `paperboy` job runs in `no_agent` mode — the cron runner delivers its stdout verbatim with no opportunity for the agent to reformat. The `paperboy-briefing` job reads the file but only produces the radio briefing + TTS audio; it never re-outputs the raw article list. This split guarantees raw output fidelity without guardrails.
 
@@ -128,7 +132,7 @@ hermes cron create \
   --schedule "15 7 * * *" \
   --deliver origin \
   --skills paperboy \
-  --prompt "The paperboy cron job ran at 7 AM and wrote its output to ~/.hermes/.paperboy/paperboy.md. Read that file. If the file contains 'Sorry mate' — forward verbatim, stop. Otherwise compose a radio-style news briefing. For each article, embed its preview URL as a markdown link on the title text (e.g. [Title](url)) followed by a short summary. Send the transcript as a text message, then generate TTS audio of just the spoken portion (no URLs, no markdown) and send it."
+  --prompt "The paperboy cron job ran at 7 AM and wrote its output to ~/.hermes/.paperboy/paperboy.md. Read that file. If the file contains 'Sorry mate' — forward verbatim via send_message() (no audio needed). STOP after that. Otherwise: (1) Compose a radio-style news briefing. For each article, embed its preview URL as a markdown link on the title text (e.g. [Title](url)) followed by a short summary. (2) Send the transcript as a text message. (3) Generate TTS audio of just the spoken portion (no URLs, no markdown) using text_to_speech(). (4) Send the audio file via send_message() with MEDIA:path in the message text."
 ```
 
 To chain the agent job to the raw job's output as fallback context (injects raw job's stdout into agent session):
@@ -188,7 +192,7 @@ This guarantees no articles are missed from a timezone boundary or sub-day preci
 - Matches tags via substring matching and word overlap for multi-word tags
 - Selects only the top N articles (default: 10) for preview URL generation
 
-> **⚠️ CRITICAL PITFALL:** The `scored_articles = []` initialization on the line after `# Score articles` comment is **easy to accidentally delete** during patches. This happened during the no-news message patch — the line was eaten, causing a `NameError` on `scored_articles.append()`. Always verify this line exists after modifying the `main()` function. The cron scheduler's `script` field pre-runs the script before the agent session; if the prompt says "Run the script..." the agent will re-run it and get stale results — always phrase as "The script has already run..."
+> **⚠️ CRITICAL PITFALL — `output_lines = []` must exist before any `append()` call:** The buffer-based refactor (v2.2.0) collects output in `output_lines = []`. The no-news return path (`return 0`) is BEFORE the `# Score articles` section. If `output_lines` is accidentally moved below the early-return path, `output_lines.append()` on the no-news path will raise `AttributeError`. Always verify the `output_lines = []` line is at the top of `main()`, before all `append()` calls. Similarly, `scored_articles = []` must exist before the `# Score articles` section. The cron scheduler's `script` field pre-runs the script before the agent session; if the prompt says "Run the script..." the agent will re-run it and get stale results — always phrase as "The script has already run..."
 
 #### 4. Preview URL Generation
 - Generates dashboard preview URLs in the format: `https://karakeep.dex-lips.duckdns.org/dashboard/preview/<bookmark_id>`
@@ -205,7 +209,7 @@ The workflow stores persistent state in `~/.hermes/.paperboy/`:
 | File | Purpose |
 |------|---------|
 | `paperboy.md` | Output from the latest Paperboy run; read by the agent cron job for radio report + TTS |
-| `strategy_state.json` | Tracks last run timestamp to filter out already-processed articles |
+| `state.json` | Tracks last run timestamp to filter out already-processed articles |
 | `seen_articles.json` | (Deprecated, kept for migration) Previously tracked seen article IDs |
 | `learned_tags.json` | Learned tag effectiveness data collected across runs |
 | `summary_cache.json` | Cached article summaries to avoid redundant API calls |
@@ -217,6 +221,23 @@ The directory was renamed from `.article_discovery` to `.paperboy` in May 2026 t
 - **Freshness decay**: Articles scored the same regardless of age within the window. Newer articles should score higher.
 - **Content-type signals**: Articles with summaries could rank higher than those without.
 - **Source quality weighting**: Some feeds are more relevant than others — could weight by source.
+
+## Companion Workflows
+
+### Recycling list auto-cleanup
+
+Set up a "Recycling" smart list that auto-catches unwanted RSS articles, then schedule a daily purge at 8 AM (after Paperboy runs):
+
+```
+source:rss -is:fav
+```
+
+The `cleanup-recycling.py` script finds all bookmarks in the Recycling list and deletes them. See `references/recycling-cleanup-pattern.md` for setup details.
+
+Key benefits:
+- Runs at 8 AM, after Paperboy has already discovered and delivered articles (7:00-7:15)
+- `no_agent` cron mode — always reliable, no agent overhead
+- Silent on empty list — no noise when there's nothing to clean
 
 ## Session References
 
