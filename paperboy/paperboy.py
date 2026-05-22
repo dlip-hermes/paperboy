@@ -290,6 +290,10 @@ def main():
     if not new_articles:
         # Still update last run time to avoid checking same period next time
         save_last_run_time()
+        # Output friendly no-news message
+        print("# 🗞️🏃💨 Paperboy Run!")
+        print()
+        print("Sorry mate there's no new news at the moment")
         return 0
 
     # Score articles
