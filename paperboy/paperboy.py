@@ -5,6 +5,7 @@ Discovers recent articles based on favorited bookmarks and generates preview URL
 Outputs the delivery title followed by styled title, summary, and preview URL for each article.
 """
 
+import argparse
 import json
 import subprocess
 import sys
@@ -273,9 +274,19 @@ def score_article(article, top_tags):
 
 def main():
     """Main function to discover and output article info for recent articles."""
+    # Parse CLI args
+    parser = argparse.ArgumentParser(description='Paperboy article discovery')
+    parser.add_argument('--output-file', '-o', type=str, default=None,
+                        help='Write output to this file in addition to stdout')
+    args, _ = parser.parse_known_args()
+
+    # Collect output in a buffer
+    output_lines = []
+
     # Get favorited bookmarks to determine interests
     favorited = get_favorited_bookmarks()
     if not favorited:
+        flush_output(output_lines, output_file=args.output_file)
         return 1
 
     # Extract and count tags
@@ -291,9 +302,10 @@ def main():
         # Still update last run time to avoid checking same period next time
         save_last_run_time()
         # Output friendly no-news message
-        print("# 🗞️🏃💨 Paperboy Run!")
-        print()
-        print("Sorry mate there's no new news at the moment")
+        output_lines.append("# 🗞️🏃💨 Paperboy Run!")
+        output_lines.append("")
+        output_lines.append("Sorry mate there's no new news at the moment")
+        flush_output(output_lines, output_file=args.output_file)
         return 0
 
     # Score articles
@@ -342,19 +354,36 @@ def main():
     save_last_run_time()
 
     # Output the title first as H1, then for each article: title as H2, summary, URL
-    print("# 🏃💨 Paperboy Run! 🗞️")
-    print()  # Empty line after title
+    output_lines.append("# 🏃💨 Paperboy Run! 🗞️")
+    output_lines.append("")  # Empty line after title
     for i, info in enumerate(articles_info):
-        print(f"## {info['title']}")
-        print()  # Blank line between fields
-        print(f"{info['summary']}")
-        print()  # Blank line between fields
-        print(f"{info['url']}")
+        output_lines.append(f"## {info['title']}")
+        output_lines.append("")  # Blank line between fields
+        output_lines.append(f"{info['summary']}")
+        output_lines.append("")  # Blank line between fields
+        output_lines.append(f"{info['url']}")
         # Add a blank line between articles except after the last one
         if i < len(articles_info) - 1:
-            print()  # Only one blank line between articles
+            output_lines.append("")  # Only one blank line between articles
 
+    flush_output(output_lines, output_file=args.output_file)
     return 0
+
+
+def flush_output(lines, output_file=None):
+    """Print lines to stdout and optionally write to a file."""
+    text = '\n'.join(lines)
+    sys.stdout.write(text)
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+    if output_file:
+        try:
+            os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+            with open(output_file, 'w') as f:
+                f.write(text)
+                f.write('\n')
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
