@@ -1,4 +1,4 @@
-# 🏃💨 Paperboy
+# 🗞️🏃💨 Paperboy
 
 Automated article discovery from [Karakeep](https://github.com/karakeep-app/karakeep) favorites — interest analysis, scoring, and preview delivery.
 
