@@ -352,7 +352,8 @@ def main():
                 articles_info.append({
                     'title': title,
                     'summary': summary,
-                    'url': preview_url
+                    'url': preview_url,
+                    'score': item['score']
                 })
 
     # Update last run time
@@ -366,6 +367,7 @@ def main():
         output_lines.append("")  # Blank line between fields
         output_lines.append(f"{info['summary']}")
         output_lines.append("")  # Blank line between fields
+        output_lines.append(f"Score: {info['score']}")
         output_lines.append(f"{info['url']}")
         # Add a blank line between articles except after the last one
         if i < len(articles_info) - 1:
