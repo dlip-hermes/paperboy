@@ -97,12 +97,14 @@ def get_favorited_bookmarks():
 
 
 def extract_tags_from_bookmarks(bookmarks):
-    """Extract and count tags from favorited bookmarks."""
+    """Extract and count tag names from favorited bookmarks."""
     all_tags = []
     for bm in bookmarks:
         if bm and isinstance(bm, dict):
-            tags = bm.get('tags', [])
-            all_tags.extend(tags)
+            for tag in bm.get('tags', []):
+                name = tag.get('name', '') if isinstance(tag, dict) else str(tag)
+                if name:
+                    all_tags.append(name)
 
     tag_counts = {}
     for tag in all_tags:
@@ -235,7 +237,11 @@ def score_article(article, top_tags):
         return 0
 
     score = 0
-    article_tags = [tag.lower().strip() for tag in article.get('tags', []) if tag.strip()]
+    article_tags = []
+    for tag in article.get('tags', []):
+        name = tag.get('name', '') if isinstance(tag, dict) else str(tag)
+        if name:
+            article_tags.append(name.lower().strip())
     title_lower = (article.get('title') or '').lower()
 
     # Build normalized tag weights: count / max_count so top tag = 1.0
