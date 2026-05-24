@@ -167,7 +167,6 @@ def get_last_run_time():
 
     return {'full': default_full, 'date': default_date}
 
-
 def save_last_run_time():
     """Save the current time as last run time."""
     home = os.path.expanduser('~')
@@ -365,8 +364,9 @@ def main():
     for i, info in enumerate(articles_info):
         output_lines.append(f"## {info['title']}")
         output_lines.append("")  # Blank line between fields
-        output_lines.append(f"{info['summary']}")
-        output_lines.append("")  # Blank line between fields
+        if info['score'] > 0:
+            output_lines.append(f"{info['summary']}")
+            output_lines.append("")  # Blank line between fields
         output_lines.append(f"Score: {info['score']}")
         output_lines.append(f"{info['url']}")
         # Add a blank line between articles except after the last one
