@@ -4,19 +4,36 @@
 
 set -euo pipefail
 
-LIST="${2:-Recycling}"
-DELIVER="${4:-origin}"
+LIST="Recycling"
+DELIVER="origin"
+PYTHON="${PYTHON:-python3}"  # override for NixOS: PYTHON=/var/lib/hermes/.nix-profile/bin/python3
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --list) LIST="$2"; shift 2 ;;
+        --deliver) DELIVER="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
 
 echo "♻️ Setting up Recycling bin auto-cleanup..."
 echo "   List: $LIST"
 echo "   Delivery: $DELIVER"
 echo ""
 
-# Copy the cleanup script
+# Copy the cleanup script to the paperboy skill
 echo "📦 Installing cleanup script..."
+mkdir -p ~/.hermes/skills/research/paperboy/scripts
+cp paperboy/scripts/cleanup-recycling.py ~/.hermes/skills/research/paperboy/scripts/cleanup-recycling.py
+
+# Create bash wrapper (NixOS: cron runner needs .sh scripts)
 mkdir -p ~/.hermes/scripts
-cp paperboy/scripts/cleanup-recycling.py ~/.hermes/scripts/cleanup-recycling.py
-chmod +x ~/.hermes/scripts/cleanup-recycling.py
+cat > ~/.hermes/scripts/cleanup-recycling.sh << WRAPPER
+#!/bin/bash
+# Recycling cleanup — delegates to the skill-owned Python script
+exec $PYTHON ~/.hermes/skills/research/paperboy/scripts/cleanup-recycling.py
+WRAPPER
+chmod +x ~/.hermes/scripts/cleanup-recycling.sh
 
 # Verify the list exists
 echo "🔍 Checking if list '$LIST' exists in Karakeep..."
@@ -40,14 +57,14 @@ fi
 echo "⏰ Scheduling daily cleanup at 8:00 AM..."
 hermes cron create \
     --name recycling-cleanup \
-    --script cleanup-recycling.py \
+    --script cleanup-recycling.sh \
     --schedule "0 8 * * *" \
     --deliver "$DELIVER" \
     --no-agent 2>/dev/null || {
     echo "  ↳ Updating existing job..."
     JOB_ID=$(hermes cron list 2>/dev/null | grep -B1 '"name": "recycling-cleanup"' | grep job_id | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
     if [ -n "$JOB_ID" ]; then
-        hermes cron update "$JOB_ID" --script cleanup-recycling.py --schedule "0 8 * * *" --deliver "$DELIVER" --no-agent
+        hermes cron update "$JOB_ID" --script cleanup-recycling.sh --schedule "0 8 * * *" --deliver "$DELIVER" --no-agent
     fi
 }
 
@@ -55,7 +72,8 @@ echo ""
 echo "✅ Recycling cleanup configured!"
 echo ""
 echo "📋 Every day at 8:00 AM, all bookmarks in the '$LIST' smart list will be deleted."
-echo "   To customize the list name, run: bash setup-recycling.sh --list \"Your List\""
+echo "   To customize what gets deleted, change the list's query in the Karakeep UI."
+echo "   The cleanup script uses the list's own query — no env vars needed."
 echo ""
 echo "🚀 Run it now to clear the list immediately:"
-echo "   python3 ~/.hermes/scripts/cleanup-recycling.py"
+echo "   ~/.hermes/scripts/cleanup-recycling.sh"
