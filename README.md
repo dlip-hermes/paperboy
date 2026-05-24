@@ -2,7 +2,7 @@
 
 Automated article discovery from [Karakeep](https://github.com/karakeep-app/karakeep) favorites — interest analysis, scoring, and daily delivery with a radio-style audio briefing.
 
-The `karakeep/` folder contains the Karakeep Hermes Agent skill (imported from [OpenClaw](https://github.com/karakeep-app/karakeep)) and is a dependency for Paperboy.
+The `karakeep/` folder contains the Karakeep Hermes Agent skill (imported from [OpenClaw](https://github.com/karakeep-app/karakeep)) and is a dependency for Paperboy. See `karakeep/references/api-endpoints.md` for the full REST API reference.
 
 ## Installation
 
@@ -26,44 +26,37 @@ This installs both skills, creates the bash wrapper, state directory, and both c
 | Time | Job | What it does |
 |------|-----|-------------|
 | 7:00 AM | `paperboy` | Discovers articles, delivers raw list to Telegram |
-| 7:15 AM | `paperboy-briefing` | Radio briefing + TTS audio with embedded links |
+| 7:05 AM | `paperboy-briefing` | Radio briefing + TTS audio agent run |
 
 ### Visual schedule
 
 ```
  7:00 AM ─ paperboy           🗞️  Raw article list delivered
- 7:15 AM ─ paperboy-briefing  📻  Radio briefing + TTS audio
- 8:00 AM ─ recycling-cleanup  ♻️  Recycling bin emptied
+ 7:05 AM ─ paperboy-briefing  📻  Radio briefing + TTS audio
+ 8:00 AM ─ recycling-cleanup  ♻️  Recycling list emptied
 ```
 
-### Keeping it tidy
+### Keeping it tidy (Recycling)
 
-RSS feeds can pile up quickly. The **Recycling smart list** pattern keeps your dashboard focused on fresh content:
+RSS feeds can pile up fast. The **Recycling smart list** pattern keeps your dashboard focused on fresh content while preserving articles long enough for Paperboy to review them:
 
-1. **Create a "Recycling" smart list** — Use a search query that captures RSS articles older than 3 days that you haven't favorited:
+1. **Create a "Recycling" smart list** in the Karakeep UI with a search query that captures old RSS articles you haven't favorited:
 
    ```
-   age:>3d source:rss -is:fav
+   age:>1d source:rss -is:fav
    ```
 
-2. **Auto-delete daily at 8 AM** — Run the setup script to schedule a daily purge:
+   Bookmarks matching this query appear in the Recycling list. Once they're favorited (by you or Paperboy), they automatically leave the list.
+
+2. **The cleanup script runs daily at 8 AM** — it deletes ALL bookmarks currently in the Recycling list using `GET /lists/{listId}/bookmarks` (the same endpoint the Karakeep UI uses). The list's query in the Karakeep UI is the single source of truth — change it to `age:>7d` and the cleanup follows.
+
+3. **Schedule it:**
 
    ```bash
    bash paperboy/setup-recycling.sh --list "Recycling" --deliver origin
    ```
 
-   This deletes all bookmarks in the Recycling list every morning after Paperboy has delivered your briefing. The cleanup script loops until the list is empty, so it handles feeds that keep pushing items during deletion.
-
-3. **Or archive instead of delete** — If you'd rather keep them searchable, run this via the Karakeep CLI:
-
-   ```bash
-   karakeep bookmarks search "list:Recycling" --limit 50 --json | \
-     jq -r '.bookmarks[].id' | xargs -I{} karakeep bookmarks update {} --archive
-   ```
-
-Paperboy still searches archived bookmarks for interest analysis, so archiving doesn't affect your tag learning.
-
-> **Tip:** The `age:>3d source:rss -is:fav` query is just an example. Combine any Karakeep qualifiers — `is:link`, `#tag`, `after:2026-01-01` — to build your ideal curation flow.
+> **Tip:** The `age:>1d source:rss -is:fav` query is just an example. Combine any Karakeep qualifiers — `is:link`, `#tag`, `after:2026-01-01`, `age:>7d` — to build your ideal curation flow.
 
 ### Manual setup
 
@@ -72,19 +65,29 @@ Paperboy still searches archived bookmarks for interest analysis, so archiving d
 cp -r paperboy ~/.hermes/skills/research/
 cp -r karakeep ~/.hermes/skills/research/
 
-# Create bash wrapper
+# Create bash wrappers (NixOS: cron runner needs .sh scripts)
 mkdir -p ~/.hermes/scripts
+
+# Paperboy discovery
 cat > ~/.hermes/scripts/paperboy.sh << 'EOF'
 #!/bin/bash
-exec python3 ~/.hermes/skills/research/paperboy/scripts/paperboy.py \
-  --output-file ~/.hermes/.paperboy/paperboy.md
+export PAPERBOY_MAX_ARTICLES=50
+export PAPERBOY_TOP_TAGS_LIMIT=20
+exec /path/to/python3 ~/.hermes/skills/research/paperboy/scripts/paperboy.py
 EOF
 chmod +x ~/.hermes/scripts/paperboy.sh
+
+# Recycling cleanup
+cat > ~/.hermes/scripts/cleanup-recycling.sh << 'EOF'
+#!/bin/bash
+exec /path/to/python3 ~/.hermes/skills/research/paperboy/scripts/cleanup-recycling.py
+EOF
+chmod +x ~/.hermes/scripts/cleanup-recycling.sh
 
 # Create state directory
 mkdir -p ~/.hermes/.paperboy
 
-# Cron job 1 — raw delivery (reliable)
+# Cron jobs
 hermes cron create \
   --name paperboy \
   --script paperboy.sh \
@@ -92,24 +95,27 @@ hermes cron create \
   --deliver origin \
   --no-agent
 
-# Cron job 2 — radio briefing + TTS (15 min later)
 hermes cron create \
   --name paperboy-briefing \
-  --schedule "15 7 * * *" \
+  --schedule "5 7 * * *" \
   --deliver origin \
   --skills paperboy \
-  --prompt "The paperboy cron job ran at 7 AM and wrote its output to ~/.hermes/.paperboy/paperboy.md. Read that file. If the file contains 'Sorry mate' — forward verbatim, stop. Otherwise compose a radio briefing with embedded links, generate TTS, send transcript then audio."
+  --prompt "The paperboy cron job ran at 7 AM. Review the context injected above. If it says 'Sorry mate' — forward verbatim, stop. Otherwise compose a radio briefing, generate TTS, send transcript then audio."
 
-# Chain context for fallback
-hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
+hermes cron create \
+  --name recycling-cleanup \
+  --script cleanup-recycling.sh \
+  --schedule "0 8 * * *" \
+  --deliver origin \
+  --no-agent
 ```
 
 ## What you get each morning
 
 | Time | Job | What's delivered |
 |------|-----|-----------------|
-| 7:00 AM | `paperboy` | Raw article list with `##` headings, summaries, and preview URLs (no_agent mode — always delivers) |
-| 7:15 AM | `paperboy-briefing` | Radio-style briefing transcript with [embedded tappable links](url) + TTS audio voice message (agent mode) |
+| 7:00 AM | `paperboy` | Raw article list with `##` headings, summaries, and preview URLs (`no_agent` mode — always delivers) |
+| 7:05 AM | `paperboy-briefing` | Radio-style briefing transcript with embedded tappable links + TTS audio voice message (agent mode) |
 
 ### How it works
 
@@ -117,15 +123,17 @@ hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
    - Fetches your favorited Karakeep bookmarks to learn what interests you
    - Finds new bookmarks added since the last run
    - Scores them against your interest tags (frequency-weighted)
-   - Outputs the top 10 with title, summary, and preview URL
-   - Writes the same output to `~/.hermes/.paperboy/paperboy.md` for the briefing job
+   - Outputs the top articles with title, summary, and preview URL
 
-2. **7:15 AM** — `paperboy-briefing` reads `paperboy.md` and:
+2. **7:05 AM** — `paperboy-briefing` receives the paperboy output via `context_from` and:
    - Composes a conversational radio-style news briefing
+   - Uses a random celebrity persona for in-character delivery
    - Embeds each article's preview URL as a tappable link on the title
    - Sends the full transcript to Telegram
    - Generates TTS audio of the spoken portion (no URLs read aloud)
    - Sends the voice message
+
+3. **8:00 AM** — `recycling-cleanup` empties the Recycling list so your dashboard stays clean for the next day's discovery cycle.
 
 ## Workflow
 
@@ -135,16 +143,16 @@ hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
 
 2. **Favorite what interests you** — Star bookmarks you find interesting. Paperboy learns from your favorited tags to score future articles.
 
-3. **Paperboy runs daily** — At 7 AM you get the raw article list, at 7:15 AM the radio briefing with audio.
+3. **Paperboy runs daily** — At 7 AM you get the raw article list, at 7:05 AM the radio briefing with audio, and at 8 AM the Recycling list is emptied.
 
 ## Features
 
 - **Interest Analysis** — Extracts and ranks tags from your favorited bookmarks (frequency-weighted)
 - **Recent Article Detection** — Finds articles bookmarked since the last run using Karakeep's `after:` date filter plus client-side validation
 - **Tag-Based Scoring** — Scores articles by tag relevance with substring and word-overlap matching
-- **Preview URL Generation** — Dashboard preview links for the top N scored articles (default: 10)
-- **Hybrid Cron Delivery** — Raw output guaranteed at 7 AM, radio briefing + TTS at 7:15 AM
-- **`--output-file` Support** — Writes output to a shared file so the agent-mode job can pick it up without re-running the discovery script
+- **Preview URL Generation** — Dashboard preview links for the top scored articles
+- **Hybrid Cron Delivery** — Raw output guaranteed at 7 AM (`no_agent`), radio briefing + TTS at 7:05 AM (agent mode via `context_from`)
+- **Recycling Cleanup** — Auto-deletes old RSS bookmarks via the Recycling smart list's own query — change the list query in the UI and the cleanup follows
 
 ## Standalone Usage
 
@@ -153,21 +161,25 @@ hermes cron update <paperboy-briefing-id> --context-from <paperboy-id>
 export KARAKEEP_SERVER_ADDR="https://your-karakeep-instance.example.com"
 export KARAKEEP_API_KEY="your-api-key"
 
-# Run (stdout + file output)
-python3 paperboy/paperboy.py --output-file ~/.paperboy/output.md
+# Paperboy discovery
+python3 paperboy/scripts/paperboy.py
 
-# Or just stdout
-python3 paperboy/paperboy.py
+# Recycling cleanup
+python3 paperboy/scripts/cleanup-recycling.py
 ```
 
 ## Configuration
 
 | Setting | Default | Env Var | Description |
 |---------|---------|---------|-------------|
-| `MAX_ARTICLES` | 10 | `PAPERBOY_MAX_ARTICLES` | Maximum articles to deliver per run |
-| `TOP_TAGS_LIMIT` | 8 | `PAPERBOY_TOP_TAGS_LIMIT` | Number of interest tags to use for scoring |
+| `MAX_ARTICLES` | 50 | `PAPERBOY_MAX_ARTICLES` | Maximum articles to deliver per run |
+| `TOP_TAGS_LIMIT` | 20 | `PAPERBOY_TOP_TAGS_LIMIT` | Number of interest tags to use for scoring |
 | `EXCLUDED_TAGS` | `{'inbox'}` | — | Tags to ignore when ranking interests |
 | State file | `~/.hermes/.paperboy/state.json` | — | Tracks last run time |
+
+### Recycling cleanup
+
+The cleanup is driven by the Recycling smart list's query in the Karakeep UI — no env var needed. To change what gets deleted, update the list's query (e.g., `age:>7d source:rss -is:fav`).
 
 ## License
 
