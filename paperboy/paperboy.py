@@ -367,9 +367,6 @@ def main():
         if info['score'] > 0:
             output_lines.append(f"{info['summary']}")
             output_lines.append("")  # Blank line between fields
-        # Add a blank line between articles except after the last one
-        if i < len(articles_info) - 1:
-            output_lines.append("")  # Only one blank line between articles
 
     flush_output(output_lines, output_file=args.output_file)
     return 0
