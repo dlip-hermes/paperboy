@@ -37,6 +37,10 @@ Karakeep is an open source self-hosted bookmark manager for collecting, organizi
 
 Use this skill when the user wants to interact with their Karakeep instance (adding bookmarks, managing lists/tags, searching, etc.).
 
+For programmatic API access (Python scripts, direct HTTP calls), see `references/api-endpoints.md`.
+
+For search index corruption, recovery, and bulk-deletion safety, see `references/search-index-recovery.md`.
+
 ## Core Concepts
 
 ### Bookmarks
@@ -53,7 +57,7 @@ Use this skill when the user wants to interact with their Karakeep instance (add
 ### Lists
 
 - **Manual lists**: Curated collections organized by project or topic. Can be private or public.
-- **Smart lists**: Auto-updating lists powered by search queries (e.g., `#ai -archived`).
+- **Smart lists**: Auto-updating lists powered by search queries (e.g., `#ai -archived`). **⚠️ Smart lists are saved searches, not containers.** Deleting a bookmark that matches a smart list query hard-deletes it from the entire system, not just from that list. Always include an age filter (e.g., `age:>1d`) in deletion queries to avoid wiping recent bookmarks. **⚠️ Before any bulk deletion, verify the search index is working** — a corrupted index returns ALL bookmarks for ANY query. See `references/search-index-recovery.md` for diagnosis and recovery.
 - **Collaboration**: Invite editors (can add bookmarks) or viewers (read-only) to a list.
 
 ### Tags
@@ -125,6 +129,26 @@ Karakeep can also be used to consume RSS feeds, but also can itself act as an RS
 - **Webhooks**: Subscribe to bookmark events (add/update/archive).
 
 ## Interacting with Karakeep via the CLI
+
+### ⚠️ Critical API Quirks
+
+1. **`GET /bookmarks?query=...` silently ignores the `query` parameter** — always returns ALL bookmarks. The correct endpoint is `GET /bookmarks/search?q=...` (note: `q` not `query`).
+2. **Search endpoint returns fewer results than list endpoint** — `GET /bookmarks/search?q=...` may miss items that `GET /lists/{listId}/bookmarks` catches. Prefer the list endpoint for accuracy when you know the list ID.
+3. **DELETE `/bookmarks/{id}` is a permanent hard delete** — no trash/soft-delete. Always verify queries before bulk deletion.
+4. **Search index corruption** — after a database restore, the search index may be corrupt (all queries return everything). Rebuild with `npx karakeep admin jobs reindex-all`. See `references/search-index-recovery.md`.
+
+**`GET /bookmarks/search?q=...` is the correct search endpoint** but has a ~20-result cap in practice (even with high `limit` values). For list-based operations where completeness matters, prefer `GET /lists/{listId}/bookmarks` which computes results from the list's stored query directly.
+
+**Recommended pattern for filtered bulk operations:**
+1. `GET /lists/{listId}/bookmarks` — for "everything in list X" (matches UI)
+2. `GET /bookmarks/search?q=...` — for ad-hoc searches (capped at ~20)
+3. Direct API `DELETE` / `PATCH` calls — for individual operations (fast, no `npx` overhead)
+
+2. **`GET /bookmarks/search?q=...` is the search endpoint** — uses `q=` (not `query=`). Works but can return fewer results than expected for list-based queries (observed: 20 results vs 31 from the list endpoint for identical queries). Prefer the list endpoint for list-specific operations.
+
+3. **`GET /lists/{listId}/bookmarks` is the most reliable endpoint** for getting bookmarks in a list. For smart lists, it computes results from the stored query directly — same mechanism the UI uses. Use this for any operation that should mirror what the user sees in the Karakeep UI.
+
+See `references/api-endpoints.md` for full endpoint details and recommended patterns.
 
 ### Installation
 
