@@ -136,7 +136,7 @@ def get_last_run_time():
     article_discovery_dir = os.path.join(hermes_dir, '.paperboy')
     strategy_state_file = os.path.join(article_discovery_dir, "state.json")
 
-    # Default: 48 hours ago in UTC (wider window for safety)
+    # Default: 24 hours ago in UTC
     import time
     if time.daylight and time.localtime().tm_isdst > 0:
         offset = time.altzone
@@ -145,8 +145,8 @@ def get_last_run_time():
     local_offset = timedelta(seconds=-offset)
     now_utc = datetime.now() - local_offset
 
-    default_full = (now_utc - timedelta(hours=48)).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
-    default_date = (now_utc - timedelta(hours=48)).strftime('%Y-%m-%d')
+    default_full = (now_utc - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    default_date = (now_utc - timedelta(hours=24)).strftime('%Y-%m-%d')
 
     if os.path.exists(strategy_state_file):
         try:
