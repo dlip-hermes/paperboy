@@ -362,12 +362,11 @@ def main():
     output_lines.append("# 🏃💨 Paperboy Run! 🗞️")
     output_lines.append("")  # Empty line after title
     for i, info in enumerate(articles_info):
-        output_lines.append(f"## [{info['title']}]({info['url']})")
+        output_lines.append(f"## [{info['title']}]({info['url']}) (Score: {info['score']})")
         output_lines.append("")  # Blank line between fields
         if info['score'] > 0:
             output_lines.append(f"{info['summary']}")
             output_lines.append("")  # Blank line between fields
-        output_lines.append(f"Score: {info['score']}")
         # Add a blank line between articles except after the last one
         if i < len(articles_info) - 1:
             output_lines.append("")  # Only one blank line between articles
